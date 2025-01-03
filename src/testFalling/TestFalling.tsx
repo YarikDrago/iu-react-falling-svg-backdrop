@@ -1,8 +1,7 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import queenIcon from "../assets/img/queen-icon.svg";
 import snowFlake2 from "../assets/img/snow2.svg";
-import {FallingBackdropTypes, FallingElementDataType} from "./types";
-import {initElem} from "../fallingBackdrop/functions/initElem";
+import { FallingBackdropTypes, FallingElementDataType } from "./types";
 
 const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -12,37 +11,68 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
   const [isImagesLoaded, setIsImagesLoaded] = useState(false);
   //
   let elems = useRef<FallingElementDataType[]>([]);
+  /** Color of falling elements */
+  const elemColor = "#7ab4ee";
 
-  useEffect(() => {
+  const loadImageWithColor = async (
+    src: string,
+    color: string,
+  ): Promise<HTMLImageElement> => {
+    try {
+      // Загружаем содержимое SVG как текст
+      const response = await fetch(src);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch SVG: ${src}`);
+      }
+      const svgText = await response.text();
 
-    console.log("load images ");
-    const loadImage = (src: string): Promise<HTMLImageElement> => {
+      // Изменяем цвет SVG
+      const coloredSVG = svgText.replace(/fill="[^"]*"/g, `fill="${color}"`);
+
+      // Создаем Blob и объект URL
+      const blob = new Blob([coloredSVG], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+
+      // Загружаем в Image
       return new Promise((resolve, reject) => {
         const img = new Image();
-        img.src = src;
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load image ${src}`));
+        img.onload = () => {
+          URL.revokeObjectURL(url); // Освобождаем URL после загрузки
+          resolve(img);
+        };
+        img.onerror = () =>
+          reject(new Error(`Failed to load modified SVG: ${src}`));
+        img.src = url;
       });
-    };
+    } catch (error) {
+      throw new Error(`Error processing SVG: ${error}`);
+    }
+  };
 
-    const loadAllImages = async () => {
-      try {
-        const loaded = await Promise.all(images.map((src) => loadImage(src)));
-        setLoadedImages(loaded);
-        // loadedImagesRef.current = loaded;
+  const loadAllImagesWithColor = async (
+    images: string[],
+    color: string,
+  ): Promise<HTMLImageElement[]> => {
+    return Promise.all(images.map((src) => loadImageWithColor(src, color)));
+  };
+
+  // Использование
+  useEffect(() => {
+    // const images = ["path/to/image1.svg", "path/to/image2.svg"];
+    loadAllImagesWithColor(images, elemColor)
+      .then((loadedImages) => {
+        setLoadedImages(loadedImages);
         setIsImagesLoaded(true);
-      } catch (error) {
-        console.log(error);
+      })
+      .catch((error) => {
+        console.error(error);
         setIsImagesLoaded(false);
-      }
-    };
-
-    loadAllImages();
+      });
   }, [images]);
 
   useEffect(() => {
     if (!isImagesLoaded) return;
-    initFallingElems()
+    initFallingElems();
     animationFrameIsRunning.current = true;
     requestAnimationFrame(animation);
     return () => {
@@ -50,7 +80,7 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
     };
   }, [isImagesLoaded]);
 
-  function initFallingElems(){
+  function initFallingElems() {
     const newElems: FallingElementDataType[] = new Array(maxElements).fill([]);
     elems.current = newElems;
     for (let i = 0; i < maxElements; i++) {
@@ -60,7 +90,7 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
 
   function initElem(imagesAmount: number): FallingElementDataType {
     const maxLifelong = 20; // sec
-    const newImgIdx = Math.floor(Math.random() * imagesAmount)
+    const newImgIdx = Math.floor(Math.random() * imagesAmount);
     // console.log("new image idx:", newImgIdx)
     return {
       // imgIdx: Math.floor(Math.random() * imagesAmount),
@@ -94,11 +124,11 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
       const elem = elems.current[i];
       // recalculate y position [0, 1]
       // console.log(1 - (elem.endTime - Date.now()) / elem.endTime)
-      const duration = elem.endTime - elem.startTime
+      const duration = elem.endTime - elem.startTime;
       const newYPos =
-          // elem.dist * (1 - (elem.endTime - Date.now()) / elem.endTime);
-          (1 - (elem.endTime - Date.now()) / duration);
-          // 0.5
+        // elem.dist * (1 - (elem.endTime - Date.now()) / elem.endTime);
+        1 - (elem.endTime - Date.now()) / duration;
+      // 0.5
       // elem.yPos += newYPos;
       elem.yPos = newYPos;
       // recalculate angle
@@ -107,17 +137,17 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
       // rewrite last time recalculation (at the end)
       elem.lastTime = Date.now();
     }
-    return elems
+    return elems;
   }
 
   function animation() {
-    recalculateElements(images.length)
+    recalculateElements(images.length);
     anime();
     requestAnimationFrame(animation);
   }
 
   function anime() {
-    const [imageMinSize, imageMaxSize] = [15, 50]
+    const [imageMinSize, imageMaxSize] = [15, 50];
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.height = 400;
@@ -130,39 +160,35 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
     // for (let i = 0; i < 3; i++) {
     // console.log(loadedImages.length)
     for (let i = 0; i < elems.current.length; i++) {
-      try{
-        const elem = elems.current[i]
-        const elemSize = imageMinSize + (imageMaxSize - imageMinSize) * elem.weight;
+      try {
+        const elem = elems.current[i];
+        const elemSize =
+          imageMinSize + (imageMaxSize - imageMinSize) * elem.weight;
         // console.log(elem.imgIdx)
         // const elemXCenter = (i + 1) * 100
         // const elemYCenter = 100;
         // console.log(elem.yPos)
         const elemXCenter = elem.xPos * 400 - elemSize / 2;
         const elemYCenter = elem.yPos * 400 - elemSize / 2;
-        context.fillStyle = "yellow";
+        // context.fillStyle = "yellow";
         context.save();
         context.translate(elemXCenter, elemYCenter + elemSize / 2);
         context.rotate(Math.PI * 2 * ((Date.now() % 2000) / 2000));
-        context.fillRect(
-            -elemSize / 2,
-            -elemSize / 2,
-            elemSize,
-            elemSize,
-        );
-        if (isImagesLoaded){
+        // context.fillRect(-elemSize / 2, -elemSize / 2, elemSize, elemSize);
+        if (isImagesLoaded) {
           // console.log(loadedImages.length)
           context.drawImage(
-              // loadedImages[1],
-              loadedImages[elem.imgIdx],
-              -elemSize / 2,
-              -elemSize / 2,
-              elemSize,
-              elemSize,
+            // loadedImages[1],
+            loadedImages[elem.imgIdx],
+            -elemSize / 2,
+            -elemSize / 2,
+            elemSize,
+            elemSize,
           );
         }
         // context.restore();
       } catch (e) {
-        console.log("ERROR:", i, elems.current[i].imgIdx)
+        console.log("ERROR:", i, elems.current[i].imgIdx);
       } finally {
         context.restore();
       }
