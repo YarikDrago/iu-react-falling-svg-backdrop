@@ -4,11 +4,16 @@ import snowFlake2 from "../assets/img/snow2.svg";
 import { FallingBackdropTypes, FallingElementDataType } from "./types";
 
 const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
+  const backdropRef = useRef(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameIsRunning = useRef(false);
   const images = useMemo(() => [queenIcon, snowFlake2], []);
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[]>([]);
   const [isImagesLoaded, setIsImagesLoaded] = useState(false);
+  const backdropWidthRef = useRef(0);
+  const backdropHeightRef = useRef(0);
+  const [backdropWidth, setBackdropWidth] = useState(0);
+  const [backdropHeight, setBackdropHeight] = useState(0);
   //
   let elems = useRef<FallingElementDataType[]>([]);
   /** Color of falling elements */
@@ -56,7 +61,6 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
     return Promise.all(images.map((src) => loadImageWithColor(src, color)));
   };
 
-  // Использование
   useEffect(() => {
     // const images = ["path/to/image1.svg", "path/to/image2.svg"];
     loadAllImagesWithColor(images, elemColor)
@@ -79,6 +83,23 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
       animationFrameIsRunning.current = false;
     };
   }, [isImagesLoaded]);
+
+  useEffect(() => {
+    resize();
+    window.addEventListener("resize", resize);
+    return () => {
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  function resize() {
+    if (!backdropRef.current) return;
+    const backdropElem = backdropRef.current as HTMLElement;
+    setBackdropWidth(backdropElem.offsetWidth);
+    backdropWidthRef.current = backdropElem.offsetWidth;
+    setBackdropHeight(backdropElem.offsetHeight);
+    backdropHeightRef.current = backdropElem.offsetHeight;
+  }
 
   function initFallingElems() {
     const newElems: FallingElementDataType[] = new Array(maxElements).fill([]);
@@ -150,8 +171,8 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
     const [imageMinSize, imageMaxSize] = [15, 50];
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.height = 400;
-    canvas.width = 400;
+    canvas.height = backdropHeightRef.current;
+    canvas.width = backdropWidthRef.current;
     const context = canvas.getContext("2d");
     if (!context) return;
     // context.fillStyle = "blue";
@@ -168,8 +189,9 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
         // const elemXCenter = (i + 1) * 100
         // const elemYCenter = 100;
         // console.log(elem.yPos)
-        const elemXCenter = elem.xPos * 400 - elemSize / 2;
-        const elemYCenter = elem.yPos * 400 - elemSize / 2;
+        const elemXCenter = elem.xPos * backdropWidthRef.current - elemSize / 2;
+        const elemYCenter =
+          elem.yPos * backdropHeightRef.current - elemSize / 2;
         // context.fillStyle = "yellow";
         context.save();
         context.translate(elemXCenter, elemYCenter + elemSize / 2);
@@ -196,12 +218,19 @@ const TestFalling = ({ maxElements = 10 }: FallingBackdropTypes) => {
   }
 
   return (
-    <div>
+    <div
+      ref={backdropRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        backgroundColor: "darkred",
+      }}
+    >
       <canvas
         ref={canvasRef}
         style={{
-          height: "400px",
-          width: "400px",
+          height: backdropHeight,
+          width: backdropWidth,
           backgroundColor: "darkgreen",
         }}
       />
